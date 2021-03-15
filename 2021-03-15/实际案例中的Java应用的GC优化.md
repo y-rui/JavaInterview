@@ -24,7 +24,7 @@
 
 Hotspot VM将内存划分为不同的物理区，就是“分代”思想的体现。如图所示，JVM内存主要由新生代、老年代、永久代构成。
 
-![1](/Users/yinrui/repository/JavaInterview/2021-03-15/1.png)
+![1](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/1.png?raw=true)
 
 1. 新生代（Young Generation）：大多数对象在新生代中被创建，其中很多对象的生命周期很短。每次新生代的垃圾回收（又称Minor GC）后只有少量对象存活，所以选用复制算法，只需要少量的复制成本就可以完成回收。
    - 新生代内又分三个区：一个Eden区，两个Survivor区（一般而言），大部分对象在Eden区中生成。当Eden区满时，还存活的对象将被复制到两个Survivor区（中的一个）。当这个Survivor区满时，此区的存活且不满足“晋升”条件的对象将被复制到另外一个Survivor区。对象每经历一次Minor GC，年龄加1，达到“晋升年龄阈值”后，被放到老年代，这个过程也称为“晋升”。显然，“晋升年龄阈值”的大小直接影响着对象在新生代中的停留时间，在Serial和ParNew GC两种回收器中，“晋升年龄阈值”通过参数MaxTenuringThreshold设定，默认值为15。
@@ -81,7 +81,7 @@ GC优化一般步骤可以概括为：确定目标、优化参数、验收结果
 
 举例：假设单位时间T内发生一次持续25ms的GC，接口平均响应时间为50ms，且请求均匀到达，根据下图所示：
 
-![2](/Users/yinrui/repository/JavaInterview/2021-03-15/2.png)
+![2](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/2.png?raw=true)
 
 那么有(50ms+25ms)/T比例的请求会受GC影响，其中GC前的50ms内到达的请求都会增加25ms，GC期间的25ms内到达的请求，会增加0-25ms不等，如果时间T内发生N次GC，**受GC影响请求占比=(接口响应时间+GC时间)×N/T** 。可见无论降低单次GC时间还是降低GC次数N都可以有效减少GC对响应时间的影响。
 
@@ -117,14 +117,14 @@ GC优化一般步骤可以概括为：确定目标、优化参数、验收结果
 
 这时很多人有这样的疑问，扩容Eden区虽然可以减少Minor GC的次数，但会增加单次Minor GC时间么？根据上面公式，如果单次Minor GC时间也增加，很难保证最后的优化效果。我们结合下面情况来分析，单次Minor GC时间主要受哪些因素影响？是否和新生代大小存在线性关系？ 首先，单次Minor GC时间由以下两部分组成：T1（扫描新生代）和 T2（复制存活对象到Survivor区）如下图。（注：这里为了简化问题，我们认为T1只扫描新生代判断对象是否存活的时间，其实该阶段还需要扫描部分老年代，后面案例中有详细描述。）
 
-![3](/Users/yinrui/repository/JavaInterview/2021-03-15/3.png)
+![3](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/3.png?raw=true)
 
 - 扩容前：新生代容量为R ，假设对象A的存活时间为750ms，Minor GC间隔500ms，那么本次Minor GC时间= T1（扫描新生代R）+T2（复制对象A到S）。
 - 扩容后：新生代容量为2R ，对象A的生命周期为750ms，那么Minor GC间隔增加为1000ms，此时Minor GC对象A已不再存活，不需要把它复制到Survivor区，那么本次GC时间 = 2 × T1（扫描新生代R），没有T2复制时间。
 
 可见，扩容后，Minor GC时增加了T1（扫描时间），但省去T2（复制对象）的时间，更重要的是对于虚拟机来说，复制对象的成本要远高于扫描成本，所以，单次**Minor GC时间更多取决于GC后存活对象的数量，而非Eden区的大小**。因此如果堆中短期对象很多，那么扩容新生代，单次Minor GC时间不会显著增加。下面需要确认下服务中对象的生命周期分布情况：
 
-![4](/Users/yinrui/repository/JavaInterview/2021-03-15/4.png)
+![4](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/4.png?raw=true)
 
 通过上图GC日志中两处红色框标记内容可知： 1. new threshold = 2（动态年龄判断，对象的晋升年龄阈值为2），对象仅经历2次Minor GC后就晋升到老年代，这样老年代会迅速被填满，直接导致了频繁的Major GC。 2. Major GC后老年代使用空间为300M+，意味着此时绝大多数(86% = 2G/2.3G)的对象已经不再存活，也就是说生命周期长的对象占比很小。
 
@@ -136,11 +136,11 @@ GC优化一般步骤可以概括为：确定目标、优化参数、验收结果
 
 调整前：
 
-![5](/Users/yinrui/repository/JavaInterview/2021-03-15/5.png)
+![5](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/5.png?raw=true)
 
 调整后：
 
-![6](/Users/yinrui/repository/JavaInterview/2021-03-15/6.png)
+![6](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/6.png?raw=true)
 
 #### 小结
 
@@ -165,7 +165,7 @@ JVM引入动态年龄计算，主要基于如下两点考虑：
 
 GC日志显示，高峰期CMS在重标记（Remark）阶段耗时1.39s。Remark阶段是Stop-The-World（以下简称为STW）的，即在执行垃圾回收时，Java应用程序中除了垃圾回收器线程之外其他所有线程都被挂起，意味着在此期间，用户正常工作的线程全部被暂停下来，这是低延时服务不能接受的。本次优化目标是降低Remark时间。
 
-![7](/Users/yinrui/repository/JavaInterview/2021-03-15/7.png)
+![7](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/7.png?raw=true)
 
 #### 优化
 
@@ -176,11 +176,11 @@ GC日志显示，高峰期CMS在重标记（Remark）阶段耗时1.39s。Remark�
 3. Remark重标记(STW) ，暂停所有用户线程，重新扫描堆中的对象，进行可达性分析，标记活着的对象。因为并发标记阶段是和用户线程并发执行的过程，所以该过程中可能有用户线程修改某些活跃对象的字段，指向了一个未标记过的对象，如下图中红色对象在并发标记开始时不可达，但是并行期间引用发生变化，变为对象可达，这个阶段需要重新标记出此类对象，防止在下一阶段被清理掉，这个过程也是需要STW的。特别需要注意一点，这个阶段是以新生代中对象为根来判断对象是否存活的。
 4. 并发清理，进行并发的垃圾清理。
 
-![8](/Users/yinrui/repository/JavaInterview/2021-03-15/8.png)
+![8](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/8.png?raw=true)
 
 可见，Remark阶段主要是通过扫描堆来判断对象是否存活。那么准确判断对象是否存活，需要扫描哪些对象？CMS对老年代做回收，Remark阶段仅扫描老年代是否可行？结论是不可行，原因如下：
 
-![9](/Users/yinrui/repository/JavaInterview/2021-03-15/9.png)
+![9](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/9.png?raw=true)
 
 如果仅扫描老年代中对象，即以老年代中对象为根，判断对象是否存在引用，上图中，对象A因为引用存在新生代中，它在Remark阶段就不会被修正标记为可达，GC时会被错误回收。 新生代对象持有老年代中对象的引用，这种情况称为**“跨代引用”**。因它的存在，Remark阶段必须扫描整个堆来判断对象是否存活，包括图中灰色的不可达对象。
 
@@ -196,7 +196,7 @@ GC日志显示，高峰期CMS在重标记（Remark）阶段耗时1.39s。Remark�
 
 经过增加CMSScavengeBeforeRemark参数，单次执行时间>200ms的GC停顿消失，从监控上观察，GCtime和业务波动保持一致，不再有明显的毛刺。
 
-![10](/Users/yinrui/repository/JavaInterview/2021-03-15/10.png)
+![10](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/10.png?raw=true)
 
 #### 小结
 
@@ -208,7 +208,7 @@ GC日志显示，高峰期CMS在重标记（Remark）阶段耗时1.39s。Remark�
 
 **JVM是如何避免Minor GC时扫描全堆的？** 经过统计信息显示，老年代持有新生代对象引用的情况不足1%，根据这一特性JVM引入了卡表（card table）来实现这一目的。如下图所示：
 
-![11](/Users/yinrui/repository/JavaInterview/2021-03-15/11.png)
+![11](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/11.png?raw=true)
 
 **卡表**的具体策略是将老年代的空间分成大小为512B的若干张卡（card）。卡表本身是单字节数组，数组中的每个元素对应着一张卡，当发生老年代引用新生代时，虚拟机将该卡对应的卡表元素设置为适当的值。如上图所示，卡表3被标记为脏（卡表还有另外的作用，标识并发标记阶段哪些块被修改过），之后Minor GC时通过扫描卡表就可以很快的识别哪些卡中存在老年代指向新生代的引用。这样虚拟机通过空间换时间的方式，避免了全堆扫描。
 
@@ -220,7 +220,7 @@ GC日志显示，高峰期CMS在重标记（Remark）阶段耗时1.39s。Remark�
 
 GC日志如下图（在GC日志中，Full GC是用来说明这次垃圾回收的停顿类型，代表STW类型的GC，并不特指老年代GC），根据GC日志可知本次Full GC耗时1.23s。这个在线服务同样要求低时延高可用。本次优化目标是降低单次STW回收停顿时间，提高可用性。
 
-![12](/Users/yinrui/repository/JavaInterview/2021-03-15/12.png)
+![12](https://github.com/y-rui/JavaInterview/blob/main/2021-03-15/12.png?raw=true)
 
 #### 优化
 
