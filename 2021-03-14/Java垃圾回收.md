@@ -35,14 +35,75 @@ o = null;
 
 但是这种算法它很难解决对象之间相互循环引用的问题，所以Java中的垃圾回收器基本上不使用这个算法。
 
+```java
+/**
+ * 虚拟机参数：-verbose:gc
+ */
+public class ReferenceCountingGC
+{
+    private Object instance = null;
+    private static final int _1MB = 1024 * 1024;
+    
+    /** 这个成员属性唯一的作用就是占用一点内存 */
+    private byte[] bigSize = new byte[2 * _1MB];
+    
+    public static void main(String[] args)
+    {
+        ReferenceCountingGC objectA = new ReferenceCountingGC();
+        ReferenceCountingGC objectB = new ReferenceCountingGC();
+        objectA.instance = objectB;
+        objectB.instance = objectA;
+        objectA = null;
+        objectB = null;
+        
+        System.gc();
+    }
+}
+```
+
+```
+运行结果：
+[GC 4417K->288K(61440K), 0.0013498 secs]
+[Full GC 288K->194K(61440K), 0.0094790 secs]
+```
+
+看到，两个对象相互引用着，但是虚拟机还是把这两个对象回收掉了，**这也说明虚拟机并不是通过引用计数法来判定对象是否存活的**。
+
 2. 可达性分析算法
 
 通过一系列的称为“GC Roots”(所谓“GC roots”，或者说tracing GC的“根集合”，就是一组必须活跃的引用)的对象作为起始点，从这些节点开始向下搜索，搜索所走过的路径称为GC Roots引用链（Reference Chain），当一个对象到GC Roots没有任何引用链相连（用图论的话来说，就是从GC Roots到这个对象不可达）时，则证明此对象是不可用的。
 
+在Java语言中，可以作为GCRoots的对象包括下面几种：
+
+1. 虚拟机栈（栈帧中的局部变量区，也叫做局部变量表）中引用的对象。
+2. 方法区中的类静态属性引用的对象。
+3. 方法区中常量引用的对象。
+4. 本地方法栈中JNI(Native方法)引用的对象。
+
+下图中Obj 5，Obj6，Obj 7虽然相互引用，但是由于他们到GC Roots都不可达，因此会被判定为可回收的对象。
+此算法解决了对象间循环引用的问题，所以Java、C#等语言都是使用可达性分析算法进行垃圾回收。
+
 ![1](/Users/yinrui/repository/JavaInterview/2021-03-14/1.png)
 
-上图中Obj 5，Obj6，Obj 7虽然相互引用，但是由于他们到GC Roots都不可达，因此会被判定为可回收的对象。
-此算法解决了对象间循环引用的问题，所以Java、C#等语言都是使用可达性分析算法进行垃圾回收。
+### 四种引用状态
+
+在JDK1.2之前，Java中引用的定义很传统：如果引用类型的数据中存储的数值代表的是另一块内存的起始地址，就称这块内存代表着一个引用。这种定义很纯粹，但是太过于狭隘，一个对象只有被引用或者没被引用两种状态。我们希望描述这样一类对象：当内存空间还足够时，则能保留在内存中；如果内存空间在进行垃圾收集后还是非常紧张，则可以抛弃这些对象。很多系统的缓存功能都符合这样的应用场景。在JDK1.2之后，Java对引用的概念进行了扩充，将引用分为强引用、软引用、弱引用、虚引用4种，这4种引用强度依次减弱。
+
+**1、强引用**
+
+代码中普遍存在的类似"Object obj = new Object()"这类的引用，只要强引用还存在，垃圾收集器永远不会回收掉被引用的对象。
+
+**2、软引用**
+
+描述有些还有用但并非必需的对象。在系统将要发生内存溢出异常之前，将会把这些对象列进回收范围进行二次回收。如果这次回收还没有足够的内存，才会抛出内存溢出异常。Java中的类SoftReference表示软引用。
+
+**3、弱引用**
+
+描述非必需对象。被弱引用关联的对象只能生存到下一次垃圾回收之前，垃圾收集器工作之后，无论当前内存是否足够，都会回收掉只被弱引用关联的对象。Java中的类WeakReference表示弱引用。
+
+**4、虚引用**
+
+这个引用存在的唯一目的就是在这个对象被收集器回收时收到一个系统通知，被虚引用关联的对象，和其生存时间完全没关系。Java中的类PhantomReference表示虚引用。
 
 ### 常见的 GC 回收算法有哪些？
 
