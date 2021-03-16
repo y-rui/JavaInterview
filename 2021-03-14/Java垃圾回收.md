@@ -83,7 +83,7 @@ public class ReferenceCountingGC
 下图中Obj 5，Obj6，Obj 7虽然相互引用，但是由于他们到GC Roots都不可达，因此会被判定为可回收的对象。
 此算法解决了对象间循环引用的问题，所以Java、C#等语言都是使用可达性分析算法进行垃圾回收。
 
-![1](/Users/yinrui/repository/JavaInterview/2021-03-14/1.png)
+![1](https://github.com/y-rui/JavaInterview/blob/main/2021-03-14/1.png?raw=true)
 
 ### 四种引用状态
 
@@ -117,7 +117,7 @@ public class ReferenceCountingGC
 
 这个算法如同它的名字一样，算法分为“标记”和“清除”两个阶段：首先标记出所有需要回收的对象，在标记完成后统一回收所有被标记的对象。如下图：
 
-![2](/Users/yinrui/repository/JavaInterview/2021-03-14/2.png)
+![2](https://github.com/y-rui/JavaInterview/blob/main/2021-03-14/2.png?raw=true)
 
 从上图可以发现这个算法有两个的问题：
 
@@ -130,7 +130,7 @@ public class ReferenceCountingGC
 
 这种算法原理就是将可用内存按容量划分为大小相等的两块，每次只使用其中的一块。当这一块的内存用完了，就将还存活着的对象复制到另外一块保留区上面，然后再把已使用过的内存空间一次清理掉。这样一来，仍然存活的对象被放进保留区，而垃圾对象也被释放了。同时，之前被使用的空间被清空后，成了新的保留区，而之前的保留区成了被使用的空间，就这样不断循环使用两个空间。
 
-![3](/Users/yinrui/repository/JavaInterview/2021-03-14/3.png)
+![3](https://github.com/y-rui/JavaInterview/blob/main/2021-03-14/3.png?raw=true)
 
 复制算法每次都是对整个半区进行内存回收，直接释放被使用的空间的全部内存，比一段一段释放的效率要高很多。同时，对象被复制到另外一个区域时，只要移动堆顶指针，按顺序分配内存对象即可被整齐地摆放，所以不会出现内存碎片。实现简单，运行高效。所以，复制算法的效率要远远高于标记—清除算法。
 
@@ -140,7 +140,7 @@ public class ReferenceCountingGC
 
 标记-整理算法的标记过程仍与"标记-清除"算法一致，但后续步骤不是直接对可回收对象进行清理，而是让所有存活对象都向一端移动，直至这些对象相互靠拢，整齐排列，然后直接清理掉这之外的全部内存。
 
-![4](/Users/yinrui/repository/JavaInterview/2021-03-14/4.png)
+![4](https://github.com/y-rui/JavaInterview/blob/main/2021-03-14/4.png?raw=true)
 
 这个算法的关键就是整理步骤，正是由于这一步骤，所以解决了内存碎片的问题。
 
